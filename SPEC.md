@@ -3,6 +3,16 @@
 What this project is, the decisions behind it, and how each notification is
 actually computed. This is the "why it is the way it is" document.
 
+## Tech Stack
+
+| Category | Technologies |
+|---|---|
+| Language | Go |
+| APIs | Telegram Bot API, RapidAPI Cricbuzz |
+| Infrastructure | Raspberry Pi, systemd |
+| Testing | Go testing package |
+| Config | godotenv |
+
 ## Product decisions
 
 - **Free data source.** No paid API. The service uses the unofficial Cricbuzz
