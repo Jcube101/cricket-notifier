@@ -1,0 +1,33 @@
+[Unit]
+Description=Cricket Score Notifier (Telegram)
+# Wait for real network connectivity before starting (the first thing the app
+# does is call Telegram and the cricket API).
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jcube
+WorkingDirectory=/home/jcube/projects/cricket-notifier
+# Loads BOT_TOKEN, CHAT_ID and RAPIDAPI_KEY into the process environment.
+EnvironmentFile=/home/jcube/projects/cricket-notifier/.env
+ExecStart=/home/jcube/projects/cricket-notifier/cricket-notifier
+
+# Restart if it crashes, but back off so a persistent failure (e.g. bad token)
+# doesn't spin in a tight loop and burn the API quota.
+Restart=on-failure
+RestartSec=30s
+
+# systemd sends SIGTERM on stop; the app catches it and shuts down gracefully.
+KillSignal=SIGTERM
+TimeoutStopSec=15s
+
+# A little sandboxing — the app only needs to read its own directory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/home/jcube/projects/cricket-notifier
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
