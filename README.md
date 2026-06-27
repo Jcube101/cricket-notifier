@@ -12,6 +12,16 @@ nothing in between. If your phone is quiet, nothing is happening.
 It runs as a systemd service on a Raspberry Pi, keeps all state in memory, and
 talks to the (unofficial) Cricbuzz API exposed through RapidAPI.
 
+## Tech Stack
+
+| Category | Technologies |
+|---|---|
+| Language | Go |
+| APIs | Telegram Bot API, RapidAPI Cricbuzz |
+| Infrastructure | Raspberry Pi, systemd, Cloudflare Tunnel |
+| Testing | Go testing package |
+| Config | godotenv |
+
 ## The six notifications
 
 Each event is detected by comparing the latest score snapshot against the
