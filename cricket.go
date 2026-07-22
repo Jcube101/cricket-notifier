@@ -76,9 +76,22 @@ func (c *CricketClient) get(ctx context.Context, path string) (body []byte, rema
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return body, remaining, fmt.Errorf("%s returned status %d", path, resp.StatusCode)
+		return body, remaining, &apiError{path: path, status: resp.StatusCode, body: body}
 	}
 	return body, remaining, nil
+}
+
+// apiError is returned by get on a non-200 response. It carries the HTTP status
+// and raw body so the caller can log them; its Error string is unchanged from
+// the previous fmt.Errorf form so existing log output stays identical.
+type apiError struct {
+	path   string
+	status int
+	body   []byte
+}
+
+func (e *apiError) Error() string {
+	return fmt.Sprintf("%s returned status %d", e.path, e.status)
 }
 
 // --- /matches/v1/live response model ----------------------------------------

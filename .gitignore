@@ -3,3 +3,6 @@
 
 # Compiled binary
 cricket-notifier
+
+# Activity log (persistent app-level logging)
+logs/

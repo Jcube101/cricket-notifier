@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -46,6 +47,11 @@ const (
 	// When this few monthly requests remain, stop calling the API to avoid
 	// hammering a quota that's already spent.
 	lowQuotaThreshold = 8
+
+	// activityLogPath is the persistent, rotation-safe activity log. It is
+	// relative to the working directory (the project dir, same assumption
+	// godotenv.Load makes for .env).
+	activityLogPath = "logs/activity.log"
 )
 
 func main() {
@@ -65,9 +71,28 @@ func main() {
 	discoveryInterval := envDuration("DISCOVERY_INTERVAL", defaultDiscoveryInterval)
 	watchInterval := envDuration("WATCH_INTERVAL", defaultWatchInterval)
 
+	activity, err := newActivityLogger(activityLogPath, activityLogMaxBytes)
+	if err != nil {
+		slog.Error("could not open activity log", "path", activityLogPath, "err", err)
+		os.Exit(1)
+	}
+	defer activity.close()
+
+	notifier := NewNotifier(token, chatID)
 	ctrl := &controller{
 		client:   NewCricketClient(apiKey),
-		notifier: NewNotifier(token, chatID),
+		notifier: notifier,
+		activity: activity,
+	}
+
+	// Wrap the notifier's send so every message it emits is also captured for
+	// the activity log. This is purely additive — the original send still runs
+	// and the notification/scoring logic is untouched. The watch loop reads the
+	// captured messages back to summarise which events a poll fired.
+	baseSend := notifier.send
+	notifier.send = func(text string) error {
+		ctrl.recordSend(text)
+		return baseSend(text)
 	}
 
 	// Cancel the context on Ctrl-C or SIGTERM (systemd stop) for a clean exit.
@@ -97,12 +122,41 @@ func main() {
 type controller struct {
 	client   *CricketClient
 	notifier *Notifier
+	activity *activityLogger
 
 	mu           sync.Mutex
 	matchID      int        // 0 when no match is being watched
 	prev         ScoreState // last snapshot of the active match (Valid=false until seeded)
 	quotaPaused  bool       // true once the monthly quota is (nearly) spent
 	quotaAlerted bool       // ensures the low-quota warning is sent only once
+
+	firedMu sync.Mutex // guards fired
+	fired   []string   // messages sent since the last resetFired (for activity logging)
+}
+
+// recordSend captures a message the notifier emitted. Called from the wrapped
+// send func, so it runs on whichever goroutine triggered the notification.
+func (c *controller) recordSend(text string) {
+	c.firedMu.Lock()
+	c.fired = append(c.fired, text)
+	c.firedMu.Unlock()
+}
+
+// resetFired clears the capture buffer so the next takeFired reports only
+// messages emitted after this point.
+func (c *controller) resetFired() {
+	c.firedMu.Lock()
+	c.fired = nil
+	c.firedMu.Unlock()
+}
+
+// takeFired returns and clears the captured messages.
+func (c *controller) takeFired() []string {
+	c.firedMu.Lock()
+	defer c.firedMu.Unlock()
+	f := c.fired
+	c.fired = nil
+	return f
 }
 
 // discover runs on the discovery ticker. It only does anything while idle.
@@ -120,10 +174,12 @@ func (c *controller) discover(ctx context.Context) {
 	c.noteQuota(remaining)
 	if err != nil {
 		slog.Error("discovery failed", "err", err)
+		c.logActivityError("discovery", err)
 		return
 	}
 	if match == nil {
 		slog.Info("discovery: no live India match", "quotaRemaining", remaining)
+		c.activity.logDiscovery(false, 0, remaining)
 		return
 	}
 
@@ -132,6 +188,7 @@ func (c *controller) discover(ctx context.Context) {
 	c.prev = ScoreState{} // force the watch loop to seed before notifying
 	c.mu.Unlock()
 
+	c.activity.logDiscovery(true, match.MatchID, remaining)
 	slog.Info("now watching match",
 		"matchId", match.MatchID,
 		"desc", fmt.Sprintf("%s vs %s %s", match.Team1.TeamName, match.Team2.TeamName, match.MatchDesc),
@@ -154,6 +211,7 @@ func (c *controller) watch(ctx context.Context) {
 	c.noteQuota(remaining)
 	if err != nil {
 		slog.Error("watch fetch failed", "matchId", id, "err", err)
+		c.logActivityError("watch", err)
 		return
 	}
 
@@ -162,18 +220,24 @@ func (c *controller) watch(ctx context.Context) {
 	if !prev.Valid {
 		if isTerminal(curr.State) {
 			slog.Info("match already finished on first look; not watching", "matchId", id)
+			c.activity.logDone(id, "already finished on first look; not watching")
 			c.clearMatch()
 			return
 		}
 		c.mu.Lock()
 		c.prev = curr
 		c.mu.Unlock()
+		c.activity.logSeed(id, remaining, curr.State, curr.Runs, curr.Wickets)
 		slog.Info("seeded match state", "matchId", id, "state", curr.State,
 			"score", fmt.Sprintf("%d/%d", curr.Runs, curr.Wickets))
 		return
 	}
 
+	// resetFired/takeFired bracket the diff so we log exactly the messages this
+	// poll's checkAndNotify emitted (or "no change").
+	c.resetFired()
 	c.notifier.checkAndNotify(prev, curr)
+	c.activity.logWatch(id, remaining, c.takeFired())
 
 	if isTerminal(curr.State) {
 		slog.Info("match finished", "matchId", id, "status", curr.Status)
@@ -212,6 +276,17 @@ func (c *controller) noteQuota(remaining int) {
 			"⚠️ Cricket Notifier paused: only %d API requests left this month. It will resume after the quota resets or a restart.",
 			remaining))
 	}
+}
+
+// logActivityError writes an error to the activity log, surfacing the raw HTTP
+// status and response body when the failure came from a non-200 API response.
+func (c *controller) logActivityError(where string, err error) {
+	var ae *apiError
+	if errors.As(err, &ae) {
+		c.activity.logAPIError(where, ae.status, ae.body)
+		return
+	}
+	c.activity.logError(where, err)
 }
 
 // runEvery calls fn immediately, then on every tick until the context is done.
