@@ -1,0 +1,70 @@
+{
+  "miniscore": null,
+  "matchheaders": {
+    "state": "Preview",
+    "status": "Match starts at 10:00 AM local time",
+    "matchformat": "TEST",
+    "matchstarttimestamp": 1784988000000,
+    "teamdetails": {
+      "batteamid": 10,
+      "batteamname": "WI",
+      "bowlteamid": 3,
+      "bowlteamname": "PAK"
+    },
+    "momplayers": {
+      "player": [],
+      "category": ""
+    },
+    "mosplayers": {
+      "player": [],
+      "category": ""
+    },
+    "winningteamid": 0,
+    "revisedtarget": 0,
+    "matchendtimestamp": 1785358800000,
+    "seriesid": 11968,
+    "matchdesc": "1st Test",
+    "seriesname": "Pakistan tour of West Indies, 2026",
+    "alerttype": "auto",
+    "tossresults": {
+      "tosswinnerid": 10,
+      "tosswinnername": "West Indies",
+      "decision": "Batting"
+    },
+    "livestreamenabled": false,
+    "team1": {
+      "teamid": 10,
+      "teamname": "West Indies",
+      "teamsname": "WI",
+      "isfullmember": false,
+      "isassociated": false,
+      "isleagueteam": false,
+      "iswomenteam": false,
+      "isheader": false,
+      "isactive": false,
+      "teampriority": "",
+      "isvideopresent": false,
+      "imageid": 0,
+      "countryname": "",
+      "belongsto": "",
+      "teamcolor": ""
+    },
+    "team2": {
+      "teamid": 3,
+      "teamname": "Pakistan",
+      "teamsname": "PAK",
+      "isfullmember": false,
+      "isassociated": false,
+      "isleagueteam": false,
+      "iswomenteam": false,
+      "isheader": false,
+      "isactive": false,
+      "teampriority": "",
+      "isvideopresent": false,
+      "imageid": 0,
+      "countryname": "",
+      "belongsto": "",
+      "teamcolor": ""
+    }
+  }
+}

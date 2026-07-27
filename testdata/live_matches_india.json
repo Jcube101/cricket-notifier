@@ -1,0 +1,293 @@
+{
+  "typeMatches": [
+    {
+      "matchType": "International",
+      "seriesMatches": [
+        {
+          "seriesAdWrapper": {
+            "seriesId": 11968,
+            "seriesName": "Pakistan tour of West Indies, 2026",
+            "matches": [
+              {
+                "matchInfo": {
+                  "matchId": 152496,
+                  "seriesId": 11968,
+                  "seriesName": "Pakistan tour of West Indies, 2026",
+                  "matchDesc": "1st Test",
+                  "matchFormat": "TEST",
+                  "startDate": "1784988000000",
+                  "endDate": "1785358800000",
+                  "state": "In Progress",
+                  "status": "Day 3: 3rd Session - India lead by 107 runs",
+                  "team1": {
+                    "teamId": 10,
+                    "teamName": "India",
+                    "teamSName": "IND",
+                    "imageId": 776191
+                  },
+                  "team2": {
+                    "teamId": 3,
+                    "teamName": "Pakistan",
+                    "teamSName": "PAK",
+                    "imageId": 776308
+                  },
+                  "venueInfo": {
+                    "id": 500,
+                    "ground": "Brian Lara Stadium",
+                    "city": "Tarouba, Trinidad",
+                    "timezone": "-04:00",
+                    "latitude": "10.295034",
+                    "longitude": "-61.445609"
+                  },
+                  "currBatTeamId": 10,
+                  "seriesStartDt": "1784332800000",
+                  "seriesEndDt": "1786147200000",
+                  "stateTitle": "In Progress"
+                },
+                "matchScore": {
+                  "team1Score": {
+                    "inngs1": {
+                      "inningsId": 1,
+                      "runs": 311,
+                      "wickets": 10,
+                      "overs": 98.5
+                    },
+                    "inngs2": {
+                      "inningsId": 3,
+                      "runs": 78,
+                      "wickets": 4,
+                      "overs": 25.4
+                    }
+                  },
+                  "team2Score": {
+                    "inngs1": {
+                      "inningsId": 2,
+                      "runs": 282,
+                      "wickets": 10,
+                      "overs": 80.1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "seriesAdWrapper": {
+            "seriesId": 7572,
+            "seriesName": "ICC Cricket World Cup League Two 2023-27",
+            "matches": [
+              {
+                "matchInfo": {
+                  "matchId": 155349,
+                  "seriesId": 7572,
+                  "seriesName": "ICC Cricket World Cup League Two 2023-27",
+                  "matchDesc": "119th Match",
+                  "matchFormat": "ODI",
+                  "startDate": "1785142800000",
+                  "endDate": "1785171600000",
+                  "state": "Complete",
+                  "status": "Namibia won by 3 runs",
+                  "team1": {
+                    "teamId": 161,
+                    "teamName": "Namibia",
+                    "teamSName": "NAM",
+                    "imageId": 776326
+                  },
+                  "team2": {
+                    "teamId": 72,
+                    "teamName": "Nepal",
+                    "teamSName": "NEP",
+                    "imageId": 776331
+                  },
+                  "venueInfo": {
+                    "id": 529,
+                    "ground": "Sportpark Maarschalkerweerd",
+                    "city": "Utrecht",
+                    "timezone": "+02:00",
+                    "latitude": "52.090737",
+                    "longitude": "5.121420"
+                  },
+                  "currBatTeamId": 161,
+                  "seriesStartDt": "1707955200000",
+                  "seriesEndDt": "1830211200000",
+                  "isTimeAnnounced": true,
+                  "stateTitle": "NAM Won"
+                },
+                "matchScore": {
+                  "team1Score": {
+                    "inngs1": {
+                      "inningsId": 1,
+                      "runs": 211,
+                      "wickets": 7,
+                      "overs": 49.6
+                    }
+                  },
+                  "team2Score": {
+                    "inngs1": {
+                      "inningsId": 2,
+                      "runs": 208,
+                      "wickets": 6,
+                      "overs": 49.6
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "matchType": "League",
+      "seriesMatches": [
+        {
+          "seriesAdWrapper": {
+            "seriesId": 11493,
+            "seriesName": "The Hundred Men's Competition 2026",
+            "matches": [
+              {
+                "matchInfo": {
+                  "matchId": 144747,
+                  "seriesId": 11493,
+                  "seriesName": "The Hundred Men's Competition 2026",
+                  "matchDesc": "9th Match",
+                  "matchFormat": "HUN",
+                  "startDate": "1785173400000",
+                  "endDate": "1785186000000",
+                  "state": "In Progress",
+                  "status": "MI London need 37 runs in 21 balls",
+                  "team1": {
+                    "teamId": 611,
+                    "teamName": "Southern Brave",
+                    "teamSName": "SOU",
+                    "imageId": 825073
+                  },
+                  "team2": {
+                    "teamId": 605,
+                    "teamName": "MI London",
+                    "teamSName": "MIL",
+                    "imageId": 839367
+                  },
+                  "venueInfo": {
+                    "id": 21,
+                    "ground": "The Rose Bowl",
+                    "city": "Southampton",
+                    "timezone": "+01:00",
+                    "latitude": "50.924131",
+                    "longitude": "-1.322163"
+                  },
+                  "currBatTeamId": 605,
+                  "seriesStartDt": "1784592000000",
+                  "seriesEndDt": "1787011200000",
+                  "isTimeAnnounced": true,
+                  "stateTitle": "In Progress"
+                },
+                "matchScore": {
+                  "team1Score": {
+                    "inngs1": {
+                      "inningsId": 1,
+                      "runs": 129,
+                      "wickets": 9,
+                      "overs": 100.0
+                    }
+                  },
+                  "team2Score": {
+                    "inngs1": {
+                      "inningsId": 2,
+                      "runs": 93,
+                      "wickets": 4,
+                      "overs": 79.0
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "matchType": "Women",
+      "seriesMatches": [
+        {
+          "seriesAdWrapper": {
+            "seriesId": 11504,
+            "seriesName": "The Hundred Women's Competition 2026",
+            "matches": [
+              {
+                "matchInfo": {
+                  "matchId": 145110,
+                  "seriesId": 11504,
+                  "seriesName": "The Hundred Women's Competition 2026",
+                  "matchDesc": "9th Match",
+                  "matchFormat": "HUN",
+                  "startDate": "1785160800000",
+                  "endDate": "1785173400000",
+                  "state": "Complete",
+                  "status": "Southern Brave Women won by 1 run",
+                  "team1": {
+                    "teamId": 620,
+                    "teamName": "Southern Brave Women",
+                    "teamSName": "SOUW",
+                    "imageId": 825072
+                  },
+                  "team2": {
+                    "teamId": 613,
+                    "teamName": "MI London Women",
+                    "teamSName": "MILW",
+                    "imageId": 839401
+                  },
+                  "venueInfo": {
+                    "id": 21,
+                    "ground": "The Rose Bowl",
+                    "city": "Southampton",
+                    "timezone": "+01:00",
+                    "latitude": "50.924131",
+                    "longitude": "-1.322163"
+                  },
+                  "currBatTeamId": 620,
+                  "seriesStartDt": "1784592000000",
+                  "seriesEndDt": "1787011200000",
+                  "isTimeAnnounced": true,
+                  "stateTitle": "Complete"
+                },
+                "matchScore": {
+                  "team1Score": {
+                    "inngs1": {
+                      "inningsId": 1,
+                      "runs": 126,
+                      "wickets": 7,
+                      "overs": 100.0
+                    }
+                  },
+                  "team2Score": {
+                    "inngs1": {
+                      "inningsId": 2,
+                      "runs": 125,
+                      "wickets": 3,
+                      "overs": 100.0
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "filters": {
+    "matchType": [
+      "International",
+      "League",
+      "Domestic",
+      "Women"
+    ]
+  },
+  "appIndex": {
+    "seoTitle": "Live Cricket Score - Scorecard and Match Results",
+    "webURL": "www.cricbuzz.com/live-cricket-scores/"
+  },
+  "responseLastUpdated": "1785182650"
+}

@@ -27,7 +27,11 @@ Run the tests:
 
 ```sh
 go test ./...
+go test -race ./...   # required before committing; two goroutines share controller
 ```
+
+[TESTING.md](TESTING.md) is the test suite plan — what's covered, what isn't,
+and the specific tests still worth writing.
 
 Inspect the running service:
 

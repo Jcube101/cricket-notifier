@@ -34,15 +34,17 @@ const (
 // CricketClient holds the API key and a reusable HTTP client. Everything that
 // talks to Cricbuzz hangs off this so the key lives in exactly one place.
 type CricketClient struct {
-	apiKey string
-	http   *http.Client
+	apiKey  string
+	baseURL string
+	http    *http.Client
 }
 
 // NewCricketClient builds a client with a sensible request timeout.
 func NewCricketClient(apiKey string) *CricketClient {
 	return &CricketClient{
-		apiKey: apiKey,
-		http:   &http.Client{Timeout: 20 * time.Second},
+		apiKey:  apiKey,
+		baseURL: apiBaseURL,
+		http:    &http.Client{Timeout: 20 * time.Second},
 	}
 }
 
@@ -50,7 +52,7 @@ func NewCricketClient(apiKey string) *CricketClient {
 // of monthly requests still remaining (-1 if the header was missing). The
 // context lets an in-flight request be cancelled during shutdown.
 func (c *CricketClient) get(ctx context.Context, path string) (body []byte, remaining int, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+path, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return nil, -1, fmt.Errorf("build request: %w", err)
 	}

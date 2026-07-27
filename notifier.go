@@ -5,7 +5,7 @@ package main
 // checkAndNotify takes the previous and current ScoreState and fires a Telegram
 // message for each of the six events the project cares about:
 //
-//   1. Match start          (pre-match -> playing)
+//   1. Match start          (pre-match -> playing, first innings under way)
 //   2. Innings change       (innings id changes)
 //   3. Wicket falls         (wicket count goes up)
 //   4. Team score milestone (batting team crosses each 50)
@@ -43,8 +43,12 @@ func NewNotifier(token, chatID string) *Notifier {
 
 // checkAndNotify diffs two snapshots and sends a message per detected event.
 func (n *Notifier) checkAndNotify(prev, curr ScoreState) {
-	// 1. Match start: we were waiting, now we're playing.
-	if isPreMatch(prev.State) && !isPreMatch(curr.State) && !isTerminal(curr.State) {
+	// 1. Match start: we were waiting, now we're playing. The innings guard
+	// (0 -> non-zero) is what actually distinguishes a genuine start from a
+	// mid-match "Delay" (rain, bad light): Cricbuzz reuses that state for both,
+	// so the state transition alone isn't enough. See LEARNINGS.md.
+	if isPreMatch(prev.State) && !isPreMatch(curr.State) && !isTerminal(curr.State) &&
+		prev.InningsID == 0 && curr.InningsID != 0 {
 		n.notify(fmt.Sprintf("🏏 %s — Match started", curr.Title()))
 	}
 
@@ -88,7 +92,10 @@ func (n *Notifier) checkAndNotify(prev, curr ScoreState) {
 		if b.Name == "" {
 			continue
 		}
-		prevRuns := prev.runsForBatter(b.Name) // 0 if this batter is new
+		prevRuns, known := prev.runsForBatter(b.Name)
+		if !known {
+			continue // new or returning batter: no baseline, so no milestone
+		}
 		if m, ok := highestMilestone(prevRuns, b.Runs); ok {
 			n.notify(fmt.Sprintf("🎉 %s reaches %d! (%d off %d)", b.Name, m, b.Runs, b.Balls))
 		}
@@ -106,23 +113,29 @@ func (n *Notifier) notify(text string) {
 }
 
 // runsForBatter finds a batter's runs in this snapshot by name (strike rotates,
-// so a player can move between striker and non-striker between polls).
-func (s ScoreState) runsForBatter(name string) int {
+// so a player can move between striker and non-striker between polls). The
+// bool reports whether the batter was found at all: a batter with no baseline
+// (new to the crease, or returning after being missed) must not be treated as
+// having scored 0, or they'd re-announce whatever milestone they're already past.
+func (s ScoreState) runsForBatter(name string) (int, bool) {
+	if name == "" {
+		return 0, false
+	}
 	switch name {
 	case s.Striker.Name:
-		return s.Striker.Runs
+		return s.Striker.Runs, true
 	case s.NonStriker.Name:
-		return s.NonStriker.Runs
-	default:
-		return 0
+		return s.NonStriker.Runs, true
 	}
+	return 0, false
 }
 
 // --- small pure helpers -----------------------------------------------------
 
 func isPreMatch(state string) bool {
 	switch strings.ToLower(strings.TrimSpace(state)) {
-	case "", "preview", "upcoming", "scheduled", "toss":
+	case "", "preview", "upcoming", "scheduled", "toss",
+		"delay", "rain", "wet outfield", "inspection":
 		return true
 	}
 	return false

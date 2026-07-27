@@ -119,3 +119,29 @@ discovery and watch loops from running concurrently — but with only 200 API
 requests a month, every redundant call matters. So discovery goes silent while a
 match is being watched, and the watch loop goes silent while idle. Each request
 is spent only when it can actually tell us something new.
+
+## "Delay" means two different things (found while building the test suite)
+
+Capturing real fixtures for the test suite (see TESTING.md) turned up something
+no hand-written fixture would have: `/matches/v1/live` and
+`/mcenter/v1/{id}/leanback` disagreed about the same match's `state` at the same
+instant — one said `"In Progress"`, the other said `"Delay"`. Digging into why
+led to the real problem: Cricbuzz reuses the string `"Delay"` for two unrelated
+situations — rain before a ball has been bowled, and a rain/bad-light stoppage
+mid-match. `isPreMatch` didn't recognise `"Delay"` at all, so a pre-match delay
+that later cleared up looked identical to any other "was waiting, now playing"
+transition and fired **"🏏 Match started"** while nobody was playing.
+
+The tempting fix — add `"Delay"` to `isPreMatch` — just traded one false
+positive for another: the captured Day 3 Test fixture sits in `"Delay"` mid-match,
+and a `Delay` → `In Progress` transition there would announce the match starting
+again, potentially several times during a single rain-hit Test.
+
+The actual fix doesn't live in the state string at all: gate the start message on
+the innings id going `0` → non-zero. A genuine pre-match delay has no innings yet
+under any circumstance; a mid-match delay always does. Widening `isPreMatch` to
+name the states honestly (`delay`, `rain`, `wet outfield`, `inspection`) still
+matters for accuracy, but the innings guard is what actually makes both cases
+behave correctly. Lesson: when an upstream API reuses one value for two
+semantically different situations, look for a second signal that's absent in
+exactly one of them, rather than trying to special-case the value itself.

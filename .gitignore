@@ -4,5 +4,8 @@
 # Compiled binary
 cricket-notifier
 
+# Test coverage output
+cov.out
+
 # Activity log (persistent app-level logging)
 logs/
