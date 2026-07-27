@@ -51,6 +51,14 @@ at a time.
 The first snapshot of any match is stored **without** notifying ("seeding"), so
 the service never replays events that happened before it started watching.
 
+Alongside the Telegram output, the service keeps a **persistent activity log**
+at `logs/activity.log` — one plain-text line per discovery check, watch poll
+(with the quota remaining and what the diff produced) and API error. It rotates
+at 5 MiB, keeping a single `activity.log.1` backup. This is observability only
+and never affects notifications; it exists because the Pi's journal lives on a
+small RAM disk that only retains about a day. If the log file can't be opened
+the service logs a warning and carries on without it.
+
 Shutdown is clean: on `SIGTERM` (systemd stop) or `SIGINT` (Ctrl-C) the context
 is cancelled, both loops exit, and any in-flight HTTP request is aborted.
 
@@ -118,10 +126,21 @@ go build -o cricket-notifier .
 ### 5. Install as a systemd service
 
 The unit file ([cricket-notifier.service](cricket-notifier.service)) runs the
-binary as user `jcube`, loads `.env` via `EnvironmentFile`, and restarts on
-failure with a 30s backoff.
+binary as user `jcube` and loads `.env` via `EnvironmentFile`. It restarts on
+failure with a 30s backoff, but with throttling that actually engages:
+`StartLimitIntervalSec=300` / `StartLimitBurst=5` means five failed starts
+inside five minutes drop the service into a stopped state instead of looping
+forever. (The window must exceed `RestartSec × Burst`, or the burst counter
+never fills and a crash-loop never self-arrests.)
+
+The unit is also sandboxed (`ProtectSystem=strict`, `ProtectHome=read-only`,
+`ReadOnlyPaths=<project>`), so the process can't write to its own directory —
+except for `logs/`, opened up via `ReadWritePaths` for the activity log. That
+directory **must exist before the service starts** (systemd bind-mounts it), so
+create it once:
 
 ```sh
+mkdir -p logs
 sudo cp cricket-notifier.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now cricket-notifier

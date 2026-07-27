@@ -76,6 +76,42 @@ requests/month quota. Lesson: "widely used free endpoint" has a shelf life;
 verify the data source is actually reachable *before* modelling structs against
 it.
 
+## The activity-log crash-loop (observability that took the service down)
+
+Adding a persistent activity log looked harmless and nearly bricked the service.
+The logger created its `logs/` directory on startup and `main.go` treated a
+failure to open the log as fatal (`os.Exit(1)`). But the systemd unit sandboxes
+the project directory read-only (`ProtectSystem=strict`, `ProtectHome=read-only`,
+`ReadOnlyPaths=<project>`), so `mkdir logs` failed with *read-only file system*,
+the process exited 1 within ~11 ms, and systemd restarted it — **~6900 times**,
+saturating a shared, size-capped journal on the Pi and crowding out every other
+service's logs.
+
+Three lessons, each now baked into the code/unit:
+
+- **Observability must never be a hard dependency.** A logging failure should
+  degrade (warn + disabled no-op logger), never stop the program starting. If a
+  feature exists purely to help you see what's happening, it must not be able to
+  stop the thing you're watching.
+- **A sandbox changes what "can write here" means.** The code ran fine when
+  built and run by hand — the read-only constraint only exists under the systemd
+  unit. A write the developer never sees fail can be fatal in production. The fix
+  was `ReadWritePaths=<project>/logs` (and the dir must pre-exist; systemd
+  bind-mounts it).
+- **Restart throttling only works if the window fits the backoff.** The unit had
+  the default `StartLimitBurst=5` but a 10s `StartLimitIntervalSec`, while
+  `RestartSec=30s`. At most one restart lands per 10s window, so the burst
+  counter never fills and the limiter *never trips* — an infinite loop with a
+  throttle that does nothing. The window must exceed `RestartSec × Burst`
+  (now 300s), so a genuine crash-loop fails into a stopped state after 5 tries.
+
+Bonus corollary discovered while debugging: an unclean shutdown left four
+zero-length objects in `.git` (the loose objects mid-write when power was lost),
+which `git fsck` flagged as *object file … is empty*. Because the remote had the
+commit intact, recovery was: back up `.git`, `find .git/objects -type f -empty
+-delete`, `git fetch origin`. The ext4 error counter (`/sys/fs/ext4/…/errors_count`)
+read 0, confirming the filesystem itself was fine — only in-flight writes were lost.
+
 ## Why the two loops are mutually exclusive
 
 This was a budget decision, not a technical one. There's nothing stopping the

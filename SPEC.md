@@ -112,3 +112,10 @@ The consequence is twofold:
 Both are acceptable for a personal notifier. Persisting the last snapshot (e.g.
 SQLite) would close the downtime gap; it's noted as a v2 idea in
 [ROADMAP.md](ROADMAP.md).
+
+Note that the **match state** being in-memory is separate from the **activity
+log**, which *is* persisted (`logs/activity.log`). The activity log is
+observability — a durable record of what the loops did and saw — not program
+state: nothing is ever read back from it, and losing it changes no behaviour. It
+exists because the host's journal sits on a small RAM disk with ~a day of
+retention, so `journalctl` history is usually gone by debugging time.

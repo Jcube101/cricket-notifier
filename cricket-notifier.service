@@ -5,6 +5,13 @@ Description=Cricket Score Notifier (Telegram)
 After=network-online.target
 Wants=network-online.target
 
+# Restart throttling: with RestartSec=30s below, allow up to 5 failed starts
+# within 5 minutes before giving up. The window MUST exceed RestartSec*Burst
+# (30s*5=150s) or the counter never fills and the service loops forever — the
+# previous 10s default window was why the crash-loop never self-arrested.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
 [Service]
 Type=simple
 User=jcube
@@ -22,11 +29,14 @@ RestartSec=30s
 KillSignal=SIGTERM
 TimeoutStopSec=15s
 
-# A little sandboxing — the app only needs to read its own directory.
+# A little sandboxing — the app reads its own directory but must be able to
+# write its activity log. ReadWritePaths punches a writable hole (for logs/)
+# through ProtectHome/ProtectSystem/ReadOnlyPaths; the dir must already exist.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadOnlyPaths=/home/jcube/projects/cricket-notifier
+ReadWritePaths=/home/jcube/projects/cricket-notifier/logs
 PrivateTmp=true
 
 [Install]
