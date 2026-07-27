@@ -71,10 +71,13 @@ func main() {
 	discoveryInterval := envDuration("DISCOVERY_INTERVAL", defaultDiscoveryInterval)
 	watchInterval := envDuration("WATCH_INTERVAL", defaultWatchInterval)
 
+	// The activity log is observability, not a hard dependency: if it can't be
+	// opened (e.g. a read-only path under the systemd sandbox) we warn and carry
+	// on with a disabled no-op logger rather than refusing to start.
 	activity, err := newActivityLogger(activityLogPath, activityLogMaxBytes)
 	if err != nil {
-		slog.Error("could not open activity log", "path", activityLogPath, "err", err)
-		os.Exit(1)
+		slog.Warn("activity log disabled; continuing without it", "path", activityLogPath, "err", err)
+		activity = newDisabledActivityLogger()
 	}
 	defer activity.close()
 

@@ -50,6 +50,13 @@ func newActivityLogger(path string, maxBytes int64) (*activityLogger, error) {
 	return l, nil
 }
 
+// newDisabledActivityLogger returns a logger whose file is nil, so every
+// writeLine is a silent no-op. Used when the log file can't be opened, so a
+// missing/read-only log path never prevents the service from starting.
+func newDisabledActivityLogger() *activityLogger {
+	return &activityLogger{}
+}
+
 // open (re)opens the log file in append mode and records its current size.
 func (l *activityLogger) open() error {
 	f, err := os.OpenFile(l.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
