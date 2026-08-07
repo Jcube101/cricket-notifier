@@ -127,8 +127,10 @@ type team struct {
 }
 
 // fetchLiveIndiaMatch returns the first currently-live match that India is
-// playing in, or (nil, nil) when there is no such match.
-func (c *CricketClient) fetchLiveIndiaMatch(ctx context.Context) (*matchInfo, int, error) {
+// playing in, or (nil, nil) when there is no such match. Warm-up/practice/tour
+// matches are excluded even when India is involved and the match is live —
+// only official ODI/T20I/Test matches are worth the API budget to watch.
+func (c *CricketClient) fetchLiveIndiaMatch(ctx context.Context, activity *activityLogger) (*matchInfo, int, error) {
 	body, remaining, err := c.get(ctx, "/matches/v1/live")
 	if err != nil {
 		return nil, remaining, err
@@ -146,14 +148,33 @@ func (c *CricketClient) fetchLiveIndiaMatch(ctx context.Context) (*matchInfo, in
 			}
 			for _, m := range sm.SeriesAdWrapper.Matches {
 				mi := m.MatchInfo
-				if involvesIndia(mi) && isWatchable(mi.State) {
-					found := mi // copy so we don't return a loop pointer
-					return &found, remaining, nil
+				if !involvesIndia(mi) || !isWatchable(mi.State) {
+					continue
 				}
+				if isExhibitionMatch(mi.MatchDesc) {
+					if activity != nil {
+						activity.logSkippedExhibition(mi.MatchID, mi.MatchDesc, mi.Team1.TeamName+" vs "+mi.Team2.TeamName)
+					}
+					continue
+				}
+				found := mi // copy so we don't return a loop pointer
+				return &found, remaining, nil
 			}
 		}
 	}
 	return nil, remaining, nil
+}
+
+// isExhibitionMatch reports whether a match description marks it as a
+// warm-up, practice, or tour match — not an official ODI/T20I/Test fixture.
+func isExhibitionMatch(matchDesc string) bool {
+	desc := strings.ToLower(matchDesc)
+	for _, kw := range []string{"warm-up", "warm up", "practice", "tour match"} {
+		if strings.Contains(desc, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 // involvesIndia reports whether the senior India team is playing in this match.

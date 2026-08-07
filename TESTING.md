@@ -266,6 +266,11 @@ Highest value per line. Nothing here is covered today.
 - [x] The *first* watchable India match wins when several are live.
 - [x] Malformed JSON body → decode error returned, no panic, quota still
       reported.
+- [x] `live_matches_india_warmup_then_real.json` → a live warm-up match ahead of
+      it in the list is skipped (and logged via `logSkippedExhibition`) and the
+      real Test behind it is returned instead. Covers `isExhibitionMatch`
+      matching `matchInfo.matchDesc` case-insensitively against warm-up,
+      practice and tour-match wording.
 
 **`get` — headers and errors.**
 
@@ -335,6 +340,21 @@ notifier, and a request counter.
 - [x] A fetch error leaves `matchID` and `prev` untouched (no lost baseline)
       and does not notify.
 
+**Monotonicity guard** — the duplicate-notification fix
+(`TestWatchRejectsStaleRegressionWithinInnings`,
+`TestWatchAcceptsInningsChangeWithLowerRunsAndWickets`,
+`TestWatchAcceptsForwardProgressWithinInnings`).
+
+- [x] Same `InningsID` as `prev`, but `curr.Runs` or `curr.Wickets` is lower →
+      the poll is discarded: no notification, `prev`/`matchID` unchanged, and
+      `logRejected` records the before/after runs and wickets
+      ([main.go:245](main.go#L245)).
+- [x] A genuine innings change (`InningsID` differs) with lower runs/wickets is
+      **not** rejected — the drop is legitimate, so the end-of-innings message
+      fires and `prev` updates to the new innings' state.
+- [x] Ordinary forward progress within the same innings is unaffected — still
+      notifies and updates `prev` as before.
+
 **Quota guard.**
 
 - [x] `remaining <= lowQuotaThreshold` (8) sets `quotaPaused` and sends the
@@ -381,10 +401,10 @@ notifier, and a request counter.
 open as fatal crash-looped the service roughly 6900 times. The contract now is:
 every `activity.*` call must be safe on a logger with a nil file.
 
-- [x] Call **all** of `logDiscovery`, `logSeed`, `logWatch`, `logDone`,
-      `logAPIError`, `logError`, `writeLine` and `close` on
-      `newDisabledActivityLogger()`. Each is a silent no-op; none panics.
-      Add every new `activity.*` method to this test as it is written.
+- [x] Call **all** of `logDiscovery`, `logSeed`, `logWatch`, `logSkippedExhibition`,
+      `logRejected`, `logDone`, `logAPIError`, `logError`, `writeLine` and
+      `close` on `newDisabledActivityLogger()`. Each is a silent no-op; none
+      panics. Add every new `activity.*` method to this test as it is written.
 - [x] `close` is idempotent — calling it twice does not panic.
 
 **Rotation.**
@@ -505,15 +525,19 @@ place for silent formatting drift.
 
 ## Fixtures
 
-**Already captured.** `testdata/` holds twelve fixtures, built from two real
-RapidAPI responses taken 2026-07-28 during the WI vs PAK 1st Test (match
-`152496`, Day 3) — cost: 2 of the 200 monthly requests. See
+**Already captured.** `testdata/` holds thirteen fixtures. Twelve are built from
+two real RapidAPI responses taken 2026-07-28 during the WI vs PAK 1st Test
+(match `152496`, Day 3) — cost: 2 of the 200 monthly requests. The thirteenth,
+`live_matches_india_warmup_then_real.json`, is a hand-built minimal fixture (not
+a full capture) modeling a real live-data observation from 2026-08-07: a live
+India warm-up match (`matchId=169497`, "3-Day Warm-up Match" vs Sri Lanka XI)
+ahead of a real Test in the same response. See
 [testdata/README.md](testdata/README.md) for the provenance of each file and how
 the derived ones were produced.
 
-All twelve have been verified to decode through the current structs and
-`toScoreState`. Tests should read them with `os.ReadFile`; never generate
-payloads inline.
+All twelve captured fixtures have been verified to decode through the current
+structs and `toScoreState`. Tests should read them with `os.ReadFile`; never
+generate payloads inline.
 
 The capture landed on a Test match, which is richer than the ODI-shaped data the
 existing tests assume: three innings in `inningsscores`, and irregular

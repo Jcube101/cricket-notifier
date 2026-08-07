@@ -132,6 +132,12 @@ func (l *activityLogger) logDiscovery(found bool, matchID, remaining int) {
 	l.writeLine(fmt.Sprintf("discovery: no live India match (quota remaining=%s)", quotaStr(remaining)))
 }
 
+// logSkippedExhibition records a warm-up/practice/tour match that discovery
+// found but excluded, since it's not an official ODI/T20I/Test fixture.
+func (l *activityLogger) logSkippedExhibition(matchID int, matchDesc, title string) {
+	l.writeLine(fmt.Sprintf("discovery: skipped %s id=%d (%s)", oneLine(matchDesc), matchID, title))
+}
+
 // logSeed records the first (silent) snapshot the watch loop stores for a match.
 func (l *activityLogger) logSeed(matchID, remaining int, state string, runs, wkts int) {
 	l.writeLine(fmt.Sprintf("watch: match=%d quota remaining=%s -> seeded (state=%q %d/%d)",
@@ -151,6 +157,15 @@ func (l *activityLogger) logWatch(matchID, remaining int, events []string) {
 	}
 	l.writeLine(fmt.Sprintf("watch: match=%d quota remaining=%s -> %s",
 		matchID, quotaStr(remaining), summary))
+}
+
+// logRejected records a poll whose snapshot looked like a stale/regressed
+// read (runs or wickets went backward within the same innings) and was
+// therefore discarded without updating state or running event detection.
+func (l *activityLogger) logRejected(matchID, remaining, prevRuns, currRuns, prevWkts, currWkts int) {
+	l.writeLine(fmt.Sprintf(
+		"watch: match=%d quota remaining=%s -> rejected stale snapshot (runs %d->%d, wickets %d->%d)",
+		matchID, quotaStr(remaining), prevRuns, currRuns, prevWkts, currWkts))
 }
 
 // logDone records a poll on which the match was already/now finished.

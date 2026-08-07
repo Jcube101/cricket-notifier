@@ -173,7 +173,7 @@ func (c *controller) discover(ctx context.Context) {
 		return
 	}
 
-	match, remaining, err := c.client.fetchLiveIndiaMatch(ctx)
+	match, remaining, err := c.client.fetchLiveIndiaMatch(ctx, c.activity)
 	c.noteQuota(remaining)
 	if err != nil {
 		slog.Error("discovery failed", "err", err)
@@ -233,6 +233,20 @@ func (c *controller) watch(ctx context.Context) {
 		c.activity.logSeed(id, remaining, curr.State, curr.Runs, curr.Wickets)
 		slog.Info("seeded match state", "matchId", id, "state", curr.State,
 			"score", fmt.Sprintf("%d/%d", curr.Runs, curr.Wickets))
+		return
+	}
+
+	// Monotonicity guard: within the same innings, runs and wickets can only
+	// go up. A snapshot that goes backward is a stale/inconsistent read from
+	// the upstream API (see LEARNINGS.md), not a genuine event — accepting it
+	// as the new prev would corrupt state and cause already-notified events
+	// to look new again on a later poll. Discard it: don't update prev, don't
+	// run event detection, don't treat it as an error.
+	if curr.InningsID == prev.InningsID && (curr.Runs < prev.Runs || curr.Wickets < prev.Wickets) {
+		slog.Warn("watch: rejected stale snapshot", "matchId", id,
+			"prevRuns", prev.Runs, "currRuns", curr.Runs,
+			"prevWickets", prev.Wickets, "currWickets", curr.Wickets)
+		c.activity.logRejected(id, remaining, prev.Runs, curr.Runs, prev.Wickets, curr.Wickets)
 		return
 	}
 

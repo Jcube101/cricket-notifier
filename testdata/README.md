@@ -49,6 +49,7 @@ data the original tests assumed:
 | `live_matches_india_a_women.json` | WI → `India A`/`INDA`, SOUW → `India Women`/`INDW` | the deliberate exclusion — must find **nothing** |
 | `live_matches_india_complete.json` | India match forced to `state: "Complete"` | terminal India match is filtered out |
 | `live_matches_null_wrapper.json` | prepends one series with `"seriesAdWrapper": null` and one with the key absent | nil-safety; the India match later in the list is still found |
+| `live_matches_india_warmup_then_real.json` | **hand-built**, not derived from the two real captures — modeled on a live `/matches/v1/live` observation made 2026-08-07 (match `169497`, `matchDesc: "3-Day Warm-up Match"`, India vs Sri Lanka XI) | exhibition-match filter: a live warm-up match is skipped and a real Test later in the list is returned |
 
 ### `/mcenter/v1/{id}/leanback`
 

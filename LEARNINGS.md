@@ -145,3 +145,39 @@ matters for accuracy, but the innings guard is what actually makes both cases
 behave correctly. Lesson: when an upstream API reuses one value for two
 semantically different situations, look for a second signal that's absent in
 exactly one of them, rather than trying to special-case the value itself.
+
+## A stale API read corrupted `prev` and replayed old events (production, match 169497)
+
+Production logs showed the same wicket and the same team milestone each fire
+**twice**, twenty minutes apart, with a "no change" poll in between and no new
+event to explain the repeat. The giveaway: the wicket's attached score differed
+between the two firings (`284/6` then `305/6`) even though it named the same
+dismissed batter.
+
+`watch` ([main.go](main.go)) unconditionally copies every poll's fetched
+snapshot into `prev`, on the assumption that within a continuing innings the
+API is monotonic — runs and wickets only go up. That assumption broke: at some
+poll, the leanback endpoint returned a **regressed** read (lower runs/wickets
+than the previous poll, same innings) — the same class of upstream
+inconsistency as the `state` disagreement between `/matches/v1/live` and
+leanback documented above, just showing up as a temporarily-wrong score instead
+of a temporarily-wrong state string. `checkAndNotify` correctly saw no forward
+progress against that bad reading and logged "no change" — but `watch` still
+stored the regressed snapshot as the new `prev`. The poll after that returned to
+the real (higher) score, and diffing against the *corrupted* `prev` made
+already-announced progress look brand new: the wicket count and run total both
+appeared to cross their thresholds again, so both re-fired — this time
+reporting the score at the second poll, which is why the two firings disagreed.
+
+Fix: a monotonicity guard in `watch` rejects a poll outright — no `checkAndNotify`,
+no `prev` update — whenever runs or wickets go backward within the same
+`InningsID`, logging the rejection instead. It's explicitly *not* triggered by a
+real innings change, which legitimately starts lower than the previous innings
+ended; the guard checks `InningsID` equality first, the same pattern
+`checkAndNotify` already uses to gate the wicket/milestone checks. See SPEC.md,
+"The monotonicity guard", for the full writeup.
+
+Lesson: any diff-based state machine that assumes an upstream feed is
+monotonic needs to *verify* monotonicity, not just assume it — and needs to
+treat a regression as evidence the read is untrustworthy (discard it) rather
+than as a new fact to build the next comparison on.

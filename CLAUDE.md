@@ -9,7 +9,7 @@ Single Go package (`package main`), four source files:
 
 | File | Responsibility |
 |------|----------------|
-| `cricket.go` | The RapidAPI Cricbuzz client. HTTP plumbing, the response structs for `/matches/v1/live` and `/mcenter/{id}/leanback`, and the two fetchers: `fetchLiveIndiaMatch` and `fetchMatchScore`. Also defines `ScoreState` — the flat snapshot the rest of the code diffs — and maps the messy API JSON onto it. |
+| `cricket.go` | The RapidAPI Cricbuzz client. HTTP plumbing, the response structs for `/matches/v1/live` and `/mcenter/{id}/leanback`, and the two fetchers: `fetchLiveIndiaMatch` (which also filters out non-India, non-watchable and exhibition matches) and `fetchMatchScore`. Also defines `ScoreState` — the flat snapshot the rest of the code diffs — and maps the messy API JSON onto it. |
 | `notifier.go` | The "what changed?" logic. `checkAndNotify(prev, curr ScoreState)` diffs two snapshots and sends one Telegram message per detected event. All message formatting and the small pure helpers (`crossedMultiple`, `highestMilestone`, `formatWicket`, etc.) live here. |
 | `main.go` | Wiring. Loads `.env`, builds the client, notifier and activity logger, runs the two polling loops (`discover` / `watch`) as goroutines, owns the shared `controller` state and the quota guard, and handles graceful shutdown. Contains the untouched `sendTelegram` primitive. |
 | `activity.go` | The persistent activity log (`logs/activity.log`). A dependency-free, size-rotating text logger (5 MiB cap, one `activity.log.1` backup) that records one line per discovery check, watch poll (quota + diff result) and API error. Observability only — sits alongside `slog`, never affects notifications. |
@@ -68,6 +68,13 @@ polling would exhaust it in a single match.
   women's side are excluded on purpose. Broaden `involvesIndia` if that ever
   needs to change.
 
+- **Exhibition-match filter.** `isExhibitionMatch` in `cricket.go` excludes
+  warm-up, practice and tour matches (matched case-insensitively against
+  `matchInfo.matchDesc`) even when the senior India side is playing and the
+  match is live. `fetchLiveIndiaMatch` skips past them rather than returning
+  them, logging each skip via `activity.logSkippedExhibition`. Keep the keyword
+  list in sync with whatever wording Cricbuzz uses for non-official fixtures.
+
 - **Quota guard.** `controller.noteQuota` in `main.go` reads the
   `x-ratelimit-requests-remaining` header from every API response. When it drops
   to `lowQuotaThreshold` (8) or below, it sets `quotaPaused`, which makes both
@@ -81,6 +88,15 @@ polling would exhaust it in a single match.
 - **Seeding.** The watch loop stores the first snapshot of a match without
   calling `checkAndNotify`, so past events aren't replayed. Preserve this when
   touching `watch`.
+
+- **Monotonicity guard.** `watch` in `main.go` discards a poll whose runs or
+  wickets went backward within the same `InningsID` — a stale/regressed read
+  from the upstream API — without updating `prev` or calling `checkAndNotify`.
+  This exists because storing a regressed snapshot as `prev` made the next
+  (genuinely forward) poll look like new progress and re-fire an
+  already-notified wicket/milestone (see SPEC.md, "The monotonicity guard").
+  A real innings change is exempted by `InningsID`, since a new innings
+  legitimately starts lower than the last one ended.
 
 - **State lives only in memory** (`controller.prev`). A restart loses it and
   re-seeds from the live score. See SPEC.md for the tradeoff.

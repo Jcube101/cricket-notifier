@@ -41,8 +41,9 @@ at a time.
 
 - **Discovery loop** (default every 6h): runs only while idle. Asks the API for
   the list of live matches and picks the first one involving the senior India
-  side. When it finds one, it hands the match id to the watch loop and goes
-  quiet.
+  side that's an official ODI/T20I/Test — warm-up, practice and tour matches
+  are skipped even when India is playing. When it finds one, it hands the
+  match id to the watch loop and goes quiet.
 - **Watch loop** (default every 10m): runs only while a match is active.
   Fetches the live mini-score, diffs it against the last snapshot, fires any
   notifications, and stores the new snapshot. When the match reaches a terminal
@@ -166,6 +167,8 @@ sender, so they make no network calls and cost no API quota.
 ## Scope
 
 India men's senior side only. "India A" and the women's side are excluded by
-design. In-memory state, no database, no web UI — Telegram is the only output.
+design, as are warm-up, practice and tour matches — only official ODI/T20I/Test
+fixtures count. In-memory state, no database, no web UI — Telegram is the only
+output.
 See [SPEC.md](SPEC.md) for the product decisions and [ROADMAP.md](ROADMAP.md)
 for what might come next.

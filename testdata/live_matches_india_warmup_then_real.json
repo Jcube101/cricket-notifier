@@ -1,0 +1,67 @@
+{
+  "typeMatches": [
+    {
+      "matchType": "International",
+      "seriesMatches": [
+        {
+          "seriesAdWrapper": {
+            "seriesId": 20001,
+            "seriesName": "India tour of Sri Lanka 2026",
+            "matches": [
+              {
+                "matchInfo": {
+                  "matchId": 169497,
+                  "seriesId": 20001,
+                  "seriesName": "India tour of Sri Lanka 2026",
+                  "matchDesc": "3-Day Warm-up Match",
+                  "matchFormat": "TEST",
+                  "state": "In Progress",
+                  "status": "Day 1: Stumps",
+                  "team1": {
+                    "teamId": 9001,
+                    "teamName": "Sri Lanka XI",
+                    "teamSName": "SLXI"
+                  },
+                  "team2": {
+                    "teamId": 10,
+                    "teamName": "India",
+                    "teamSName": "IND"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "seriesAdWrapper": {
+            "seriesId": 20002,
+            "seriesName": "India tour of Sri Lanka 2026",
+            "matches": [
+              {
+                "matchInfo": {
+                  "matchId": 169500,
+                  "seriesId": 20002,
+                  "seriesName": "India tour of Sri Lanka 2026",
+                  "matchDesc": "1st Test",
+                  "matchFormat": "TEST",
+                  "state": "In Progress",
+                  "status": "Day 1: 2nd Session",
+                  "team1": {
+                    "teamId": 11,
+                    "teamName": "Sri Lanka",
+                    "teamSName": "SL"
+                  },
+                  "team2": {
+                    "teamId": 10,
+                    "teamName": "India",
+                    "teamSName": "IND"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

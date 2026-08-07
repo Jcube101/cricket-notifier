@@ -11,6 +11,12 @@ Shipped and running as a systemd service:
 - Two mutually-exclusive polling loops (discovery + watch) with a quota guard.
 - In-memory state only. Telegram is the only output. Senior India men's side
   only.
+- Discovery skips warm-up, practice and tour matches — only official
+  ODI/T20I/Test fixtures are watched (`isExhibitionMatch`, see SPEC.md).
+- Monotonicity guard in the watch loop rejects a poll whose runs/wickets go
+  backward within the same innings, instead of letting a stale API read
+  corrupt `prev` and cause duplicate notifications (see LEARNINGS.md,
+  SPEC.md "The monotonicity guard").
 
 ## v2 — ideas, not committed
 

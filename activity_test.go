@@ -24,6 +24,8 @@ func TestDisabledActivityLoggerIsSilent(t *testing.T) {
 	l.logSeed(1, 10, "In Progress", 100, 2)
 	l.logWatch(1, 10, nil)
 	l.logWatch(1, 10, []string{"x"})
+	l.logSkippedExhibition(1, "Warm-up Match", "India vs Sri Lanka XI")
+	l.logRejected(1, 10, 305, 284, 6, 5)
 	l.logDone(1, "already finished")
 	l.logAPIError("watch", 500, []byte("body"))
 	l.logError("watch", errors.New("boom"))

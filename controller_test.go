@@ -300,6 +300,159 @@ func TestNoteQuotaBoundary(t *testing.T) {
 	})
 }
 
+// --- Monotonicity guard ------------------------------------------------------------
+
+func TestWatchRejectsStaleRegressionWithinInnings(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "activity.log")
+	activity, err := newActivityLogger(logPath, activityLogMaxBytes)
+	if err != nil {
+		t.Fatalf("newActivityLogger: %v", err)
+	}
+	defer activity.close()
+
+	// Same innings (id=6) as prev, but runs/wickets have gone backward — a
+	// stale/inconsistent read from the upstream API, not a real event.
+	const body = `{
+		"miniscore": {
+			"batsmanstriker": {"name": "New Batter", "runs": 5, "balls": 10},
+			"batsmannonstriker": {"name": "Other Batter", "runs": 3, "balls": 8},
+			"lastwkt": "Anjala Bandara b Bumrah 13(20) - 284/6 in 70.0 ov.",
+			"inningsscores": {"inningsscore": [{"inningsid": 6, "batteamshortname": "SL", "runs": 284, "wickets": 5, "overs": 70.0}]},
+			"inningsid": 6,
+			"batteamscore": {"teamid": 2, "teamscore": 284, "teamwkts": 5}
+		},
+		"matchheaders": {
+			"state": "In Progress",
+			"status": "",
+			"matchformat": "TEST",
+			"team1": {"teamname": "India", "teamsname": "IND"},
+			"team2": {"teamname": "Sri Lanka XI", "teamsname": "SL"}
+		}
+	}`
+	ctrl, sent, _ := newTestController(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(body))
+	})
+	ctrl.activity = activity
+	ctrl.matchID = 169497
+	prev := ScoreState{
+		Valid: true, State: "In Progress",
+		Team1Name: "India", Team1Short: "IND", Team2Name: "Sri Lanka XI", Team2Short: "SL",
+		InningsID: 6, BatTeamShort: "SL", Runs: 305, Wickets: 6, Overs: 74.2,
+	}
+	ctrl.prev = prev
+
+	ctrl.watch(context.Background())
+
+	if len(*sent) != 0 {
+		t.Fatalf("expected no notification for a rejected stale snapshot, got %v", *sent)
+	}
+	if ctrl.prev != prev {
+		t.Fatalf("expected prev unchanged after a rejected stale snapshot, got %+v", ctrl.prev)
+	}
+	if ctrl.matchID != 169497 {
+		t.Fatalf("expected matchID unchanged, got %d", ctrl.matchID)
+	}
+
+	activity.close()
+	logBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	line := string(logBytes)
+	if !strings.Contains(line, "rejected stale snapshot") {
+		t.Fatalf("expected a rejection line, got %q", line)
+	}
+	if !strings.Contains(line, "runs 305->284") || !strings.Contains(line, "wickets 6->5") {
+		t.Fatalf("expected the rejection line to include the before/after values, got %q", line)
+	}
+}
+
+func TestWatchAcceptsInningsChangeWithLowerRunsAndWickets(t *testing.T) {
+	// A genuine new innings starting at 10/1 after the previous one ended at
+	// 305/6 must NOT be treated as a stale regression — different InningsID
+	// means the drop is legitimate.
+	const body = `{
+		"miniscore": {
+			"batsmanstriker": {"name": "Rohit Sharma", "runs": 8, "balls": 6},
+			"batsmannonstriker": {"name": "Shubman Gill", "runs": 2, "balls": 4},
+			"lastwkt": "",
+			"inningsscores": {"inningsscore": [{"inningsid": 7, "batteamshortname": "IND", "runs": 10, "wickets": 1, "overs": 2.0}]},
+			"inningsid": 7,
+			"batteamscore": {"teamid": 1, "teamscore": 10, "teamwkts": 1}
+		},
+		"matchheaders": {
+			"state": "In Progress",
+			"status": "",
+			"matchformat": "TEST",
+			"team1": {"teamname": "India", "teamsname": "IND"},
+			"team2": {"teamname": "Sri Lanka XI", "teamsname": "SL"}
+		}
+	}`
+	ctrl, sent, _ := newTestController(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(body))
+	})
+	ctrl.matchID = 169497
+	ctrl.prev = ScoreState{
+		Valid: true, State: "In Progress",
+		Team1Name: "India", Team1Short: "IND", Team2Name: "Sri Lanka XI", Team2Short: "SL",
+		InningsID: 6, BatTeamShort: "SL", Runs: 305, Wickets: 6, Overs: 74.2,
+	}
+
+	ctrl.watch(context.Background())
+
+	found := false
+	for _, m := range *sent {
+		if strings.Contains(m, "End of") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected an end-of-innings message among %v", *sent)
+	}
+	if ctrl.prev.InningsID != 7 || ctrl.prev.Runs != 10 || ctrl.prev.Wickets != 1 {
+		t.Fatalf("expected prev updated to the new innings' state, got %+v", ctrl.prev)
+	}
+}
+
+func TestWatchAcceptsForwardProgressWithinInnings(t *testing.T) {
+	const body = `{
+		"miniscore": {
+			"batsmanstriker": {"name": "Rohit Sharma", "runs": 60, "balls": 40},
+			"batsmannonstriker": {"name": "KL Rahul", "runs": 5, "balls": 6},
+			"lastwkt": "Virat Kohli c Smith b Starc 34(40) - 201/3 in 38.2 ov.",
+			"inningsscores": {"inningsscore": [{"inningsid": 1, "batteamshortname": "IND", "runs": 210, "wickets": 3, "overs": 39.0}]},
+			"inningsid": 1,
+			"batteamscore": {"teamid": 1, "teamscore": 210, "teamwkts": 3}
+		},
+		"matchheaders": {
+			"state": "In Progress",
+			"status": "",
+			"matchformat": "ODI",
+			"team1": {"teamname": "India", "teamsname": "IND"},
+			"team2": {"teamname": "Australia", "teamsname": "AUS"}
+		}
+	}`
+	ctrl, sent, _ := newTestController(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(body))
+	})
+	ctrl.matchID = 1
+	ctrl.prev = ScoreState{
+		Valid: true, State: "In Progress",
+		Team1Name: "India", Team1Short: "IND", Team2Name: "Australia", Team2Short: "AUS",
+		InningsID: 1, BatTeamShort: "IND", Runs: 148, Wickets: 2, Overs: 30.1,
+	}
+
+	ctrl.watch(context.Background())
+
+	if len(*sent) == 0 {
+		t.Fatalf("expected forward progress to notify as before, got none")
+	}
+	if ctrl.prev.Runs != 210 || ctrl.prev.Wickets != 3 {
+		t.Fatalf("expected prev updated to the fresh forward-progressing state, got %+v", ctrl.prev)
+	}
+}
+
 // --- Fired-message capture --------------------------------------------------------
 
 func TestRecordSendAndTakeFired(t *testing.T) {

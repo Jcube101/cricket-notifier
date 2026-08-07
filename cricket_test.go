@@ -165,7 +165,7 @@ func TestFetchLiveIndiaMatchFound(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := newTestClient(srv)
-	match, remaining, err := c.fetchLiveIndiaMatch(context.Background())
+	match, remaining, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestFetchLiveIndiaMatchNoIndia(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := newTestClient(srv)
-	match, _, err := c.fetchLiveIndiaMatch(context.Background())
+	match, _, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -200,7 +200,7 @@ func TestFetchLiveIndiaMatchNullWrapper(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := newTestClient(srv)
-	match, _, err := c.fetchLiveIndiaMatch(context.Background())
+	match, _, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestFetchLiveIndiaMatchTerminalExcluded(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := newTestClient(srv)
-	match, _, err := c.fetchLiveIndiaMatch(context.Background())
+	match, _, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestFetchLiveIndiaMatchAWomenExcluded(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := newTestClient(srv)
-	match, _, err := c.fetchLiveIndiaMatch(context.Background())
+	match, _, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -266,12 +266,50 @@ func TestFetchLiveIndiaMatchFirstWatchableWins(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := newTestClient(srv)
-	match, _, err := c.fetchLiveIndiaMatch(context.Background())
+	match, _, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if match == nil || match.MatchID != 1001 {
 		t.Fatalf("expected the first watchable match (1001) to win, got %+v", match)
+	}
+}
+
+func TestFetchLiveIndiaMatchSkipsWarmupFindsRealMatch(t *testing.T) {
+	body := readFixture(t, "live_matches_india_warmup_then_real.json")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(body)
+	}))
+	defer srv.Close()
+	c := newTestClient(srv)
+	match, _, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if match == nil || match.MatchID != 169500 {
+		t.Fatalf("expected the warm-up match (169497) skipped and the real Test (169500) returned, got %+v", match)
+	}
+}
+
+func TestIsExhibitionMatch(t *testing.T) {
+	cases := []struct {
+		desc string
+		want bool
+	}{
+		{"3-Day Warm-up Match", true},
+		{"3 -Day Warm-up match", true},
+		{"WARM-UP MATCH", true},
+		{"Practice Match", true},
+		{"Tour Match", true},
+		{"1st Test", false},
+		{"2nd ODI", false},
+		{"3rd T20I", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := isExhibitionMatch(c.desc); got != c.want {
+			t.Errorf("isExhibitionMatch(%q) = %v, want %v", c.desc, got, c.want)
+		}
 	}
 }
 
@@ -282,7 +320,7 @@ func TestFetchLiveIndiaMatchMalformedBody(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := newTestClient(srv)
-	match, remaining, err := c.fetchLiveIndiaMatch(context.Background())
+	match, remaining, err := c.fetchLiveIndiaMatch(context.Background(), newDisabledActivityLogger())
 	if err == nil {
 		t.Fatalf("expected a decode error for a malformed body")
 	}

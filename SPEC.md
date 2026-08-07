@@ -21,6 +21,12 @@ actually computed. This is the "why it is the way it is" document.
 - **India men's senior side only.** Matches are selected by team identity
   (`teamSName == "IND"` or `teamName == "India"`). "India A" and the women's
   side are intentionally out of scope.
+- **Official matches only.** Discovery also excludes warm-up, practice and tour
+  matches — `isExhibitionMatch` matches those keywords (case-insensitively)
+  against `matchInfo.matchDesc`. India's senior side plays these ahead of a
+  series, and they are live and India-involving, but not worth a notification
+  or the API budget. Excluded matches are logged to the activity log
+  (`logSkippedExhibition`) rather than silently dropped.
 - **Auto-detect live matches.** No configuration of which match to watch. The
   service discovers the current live India match on its own and starts watching
   it; when it ends, it goes back to looking.
@@ -112,6 +118,33 @@ The consequence is twofold:
 Both are acceptable for a personal notifier. Persisting the last snapshot (e.g.
 SQLite) would close the downtime gap; it's noted as a v2 idea in
 [ROADMAP.md](ROADMAP.md).
+
+## The monotonicity guard: a third source of duplicates
+
+A third duplicate class showed up in production logs against match `169497,`
+distinct from the two above: the *same* wicket and team milestone each fired
+twice, twenty minutes apart, with no new event in between (the poll between the
+two firings logged "no change"), and the wicket's attached score differed
+between the two firings even though it was the same dismissal.
+
+Root cause: the upstream leanback endpoint occasionally returns a **stale,
+regressed read** — a snapshot with lower runs/wickets than the previous poll,
+within the same innings (the two endpoints already disagreeing on `state` is a
+milder version of the same underlying inconsistency; see
+[LEARNINGS.md](LEARNINGS.md)). `watch` unconditionally stored every poll's
+snapshot as the new `prev`, including that regressed one. The *next* poll then
+returned to the real, forward state, and diffing against the corrupted
+(regressed) `prev` made already-notified progress look new again — re-firing
+the wicket and the milestone, this time reporting the current (higher) score
+rather than the score at the time of the original event.
+
+Fix: a **monotonicity guard** in `watch` ([main.go:245](main.go#L245)). Within
+the same `InningsID`, runs and wickets can only go up; a poll where either goes
+backward is discarded outright — no `checkAndNotify`, no `prev` update, just a
+log line (`logRejected`) recording the before/after values. A genuine innings
+change is exempted (a new innings legitimately starts lower than the previous
+one ended), gated the same way the innings-change/wicket/milestone checks in
+`notifier.go` already are: by comparing `InningsID`, not by the score alone.
 
 Note that the **match state** being in-memory is separate from the **activity
 log**, which *is* persisted (`logs/activity.log`). The activity log is
